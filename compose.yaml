@@ -1,0 +1,14 @@
+services:
+  telegrambotmqtt:
+    image: telegrambotmqtt
+    build:
+      context: ./telegrambot/
+    container_name: telegrambotmqtt
+    environment:
+      - TZ=America/Argentina/Buenos_Aires 
+      - TB_TOKEN=${TB_TOKEN}
+      - TB_AUTORIZADOS=${TB_AUTORIZADOS}
+      - SERVIDOR=${SERVIDOR}
+      - MQTT_USR=${MQTT_USR}
+      - MQTT_PASS=${MQTT_PASS}
+    restart: unless-stopped
