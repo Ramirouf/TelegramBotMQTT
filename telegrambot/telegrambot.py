@@ -72,14 +72,38 @@ async def setpoint_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         setpoint_value = int(update.message.text)
         if -20 <= setpoint_value <= 100:
             if await publish_mqtt(context, 'setpoint', str(setpoint_value)):
-                await update.message.reply_text(f"✅ Periodo actualizado a: {setpoint_value} segundos.")
+                await update.message.reply_text(f"✅ Setpoint actualizado a: {setpoint_value} grados.")
                 reply_markup = await get_main_menu_keyboard()
                 await update.message.reply_text("Selecciona otra opción:", reply_markup=reply_markup)
             else:
                 await update.message.reply_text("❌ Error al enviar el valor a MQTT.")
             return ConversationHandler.END
         else:
-            await update.message.reply_text("El periodo debe ser un número positivo. Inténtalo de nuevo.")
+            await update.message.reply_text("El setpoint debe ser un número entero entre -20 y 100. Inténtalo de nuevo.")
+            return SETPOINT
+    except ValueError:
+        await update.message.reply_text("Entrada inválida. Por favor, envía solo un número entero.")
+        return SETPOINT
+
+async def periodo(update: Update, context):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(text="Enviar el nuevo periodo en segundos (número entero, sin decimal) entre 1 y 3600:")
+    return PERIODO
+
+async def periodo_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        periodo_value = int(update.message.text)
+        if 1 <= periodo_value <= 3600:
+            if await publish_mqtt(context, 'periodo', str(periodo_value)):
+                await update.message.reply_text(f"✅ Periodo actualizado a: {periodo_value} segundos.")
+                reply_markup = await get_main_menu_keyboard()
+                await update.message.reply_text("Selecciona otra opción:", reply_markup=reply_markup)
+            else:
+                await update.message.reply_text("❌ Error al enviar el valor a MQTT.")
+            return ConversationHandler.END
+        else:
+            await update.message.reply_text("El periodo debe ser un número entero entre 1 y 3600. Inténtalo de nuevo.")
             return PERIODO
     except ValueError:
         await update.message.reply_text("Entrada inválida. Por favor, envía solo un número entero.")
@@ -171,16 +195,25 @@ async def main():
         application.add_handler(MessageHandler((~filters.User(autorizados)), sin_autorizacion))
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('acercade', acercade))
-         # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
-        conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("start", start)],
+        # Conversation handler para el setpoint
+        setpoint_conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(setpoint, pattern='^setpoint$')],
             states={
                     SETPOINT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setpoint_receive)],
             },
             fallbacks=[CommandHandler('cancel', cancel)],
         )
-        application.add_handler(conv_handler)
-        
+        application.add_handler(setpoint_conv_handler)
+        # Conversation handler para el periodo
+        periodo_conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(periodo, pattern='^periodo$')],
+            states={
+                    PERIODO: [MessageHandler(filters.TEXT & ~filters.COMMAND, periodo_receive)],
+            },
+            fallbacks=[CommandHandler('cancel', cancel)],
+        )
+        application.add_handler(periodo_conv_handler)
+
         application.add_handler(CallbackQueryHandler(modo, pattern='^modo$'))
         application.add_handler(CallbackQueryHandler(destello, pattern='^destello$'))
         application.add_handler(CallbackQueryHandler(modo_auto, pattern='^modo_auto$'))
